@@ -136,7 +136,7 @@ def load_file(npz_path, building):
     ''' Load 3D Scne Graph data in the npz files
         panoramas [output] : one numpy array with object instances and one with object classes
     '''
-    data = np.load(npz_path)['output'].item()
+    data = np.load(npz_path, allow_pickle=True)['output'].item()
 
     #set bldg attributes
     for key in data['building'].keys():
@@ -153,9 +153,10 @@ def load_file(npz_path, building):
         if room_id == 0:
             continue
         building.room[room_id] = Room()
+        # print(np.reshape(data['building']['room_voxel_occupancy'], res))
         room_faces = np.where(data['building']['room_inst_segmentation']==room_id)[0]
         building.room[room_id].set_attribute(room_faces, 'inst_segmentation')
-        room_voxels = np.where(data['building']['room_voxel_occupancy']==room_id)[0]
+        room_voxels = np.where(np.reshape(data['building']['room_voxel_occupancy'], res)==room_id)
         building.room[room_id].set_attribute(room_voxels, 'voxel_occupancy')
         for key in data['room'][room_id].keys():
             building.room[room_id].set_attribute(data['room'][room_id][key], key)
@@ -168,7 +169,7 @@ def load_file(npz_path, building):
         building.object[object_id] = Object()
         object_faces = np.where(data['building']['object_inst_segmentation']==object_id)[0]
         building.object[object_id].set_attribute(object_faces, 'inst_segmentation')
-        object_voxels = np.where(data['building']['object_voxel_occupancy']==object_id)[0]
+        object_voxels = np.where(np.reshape(data['building']['object_voxel_occupancy'], res)==object_id)
         building.object[object_id].set_attribute(object_voxels, 'voxel_occupancy')
         for key in data['object'][object_id].keys():
             building.object[object_id].set_attribute(data['object'][object_id][key], key)
@@ -298,19 +299,22 @@ def export_inst_obj(building, segm_type, gibson_mesh_path, palette_path, export_
     ## export OBJ file ##
     file = open(os.path.join(export_mesh_path, filename + "_" + segm_type + "_inst.obj"), "w")
     file.write("mtllib " + filename + "_" + segm_type + "_inst.mtl\n")
+    # convert to z-up
+    mesh.apply_transform(trimesh.transformations.rotation_matrix(np.pi / 2, [1, 0, 0]))
     #save vertices
     v_ = 'v '
     v_ += trimesh.util.array_to_string(mesh.vertices,col_delim=' ',row_delim='\nv ',digits=8) + '\n'
     file.write(v_)
 
     # add faces that are attributed an instance
-    file.write("g Mesh\n")
+    # file.write("g Mesh\n")
     inst_locs = []
     for layer in layer_type:
         if segm_type=='object':
             class_ = layer_type[layer].class_
         elif segm_type=='room':
             class_ = layer_type[layer].scene_category
+        file.write("g "+class_+"\n")
         file.write("usemtl "+class_+"_"+str(layer_type[layer].id)+"\n")
         faces=mesh.faces[layer_type[layer].inst_segmentation,:]
         inst_locs += list(layer_type[layer].inst_segmentation)
@@ -323,6 +327,7 @@ def export_inst_obj(building, segm_type, gibson_mesh_path, palette_path, export_
     # add faces that are not categorized and belong to background
     all_faces = np.arange(mesh.faces.shape[0])
     rest_of_faces = np.setdiff1d(all_faces, np.array(inst_locs))
+    file.write("g background\n")
     file.write("usemtl background\n")
     for face in rest_of_faces:
         file.write("f ")
@@ -374,19 +379,22 @@ def export_segm_obj(building, segm_type, gibson_mesh_path, palette_path, export_
     ## export OBJ file ##
     file = open(os.path.join(export_mesh_path, filename + "_" + segm_type + "_segm.obj"), "w")
     file.write("mtllib " + filename + "_" + segm_type + "_segm.mtl\n")
+    # convert to z-up
+    mesh.apply_transform(trimesh.transformations.rotation_matrix(np.pi / 2, [1, 0, 0]))
     #save vertices
     v_ = 'v '
     v_ += trimesh.util.array_to_string(mesh.vertices,col_delim=' ',row_delim='\nv ',digits=8) + '\n'
     file.write(v_)
 
     # add faces that are attributed an object category
-    file.write("g Mesh\n")
+    # file.write("g Mesh\n")
     segm_locs = []
     for layer in layer_type:
         if segm_type=='object':
             class_ = layer_type[layer].class_
         elif segm_type=='room':
             class_ = layer_type[layer].scene_category
+        file.write("g "+class_+"\n")
         file.write("usemtl "+class_+"\n")
         faces=mesh.faces[layer_type[layer].inst_segmentation,:]
         segm_locs += list(layer_type[layer].inst_segmentation)
@@ -399,6 +407,7 @@ def export_segm_obj(building, segm_type, gibson_mesh_path, palette_path, export_
     # add faces that are not categorized and belong to background
     all_faces = np.arange(mesh.faces.shape[0])
     rest_of_faces = np.setdiff1d(all_faces, np.array(segm_locs))
+    file.write("g background\n")
     file.write("usemtl background\n")
     for face in rest_of_faces:
         file.write("f ")
@@ -483,5 +492,5 @@ if __name__=="__main__":
         export_inst_obj(scenegraph3d[model], segm_type, os.path.join(gibson_mesh_path, model, 'mesh.obj'), palette_path, export_viz_path)
         export_segm_obj(scenegraph3d[model], segm_type, os.path.join(gibson_mesh_path, model, 'mesh.obj'), palette_path, export_viz_path)
         '''
-        export_segm_png(scenegraph3d[model]['panoramas'], os.path.join(gibson_mesh_path, model, 'pano','rgb'), palette_path, export_viz_path)
+        # export_segm_png(scenegraph3d[model]['panoramas'], os.path.join(gibson_mesh_path, model, 'pano','rgb'), palette_path, export_viz_path)
         
