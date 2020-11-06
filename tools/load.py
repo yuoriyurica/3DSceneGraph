@@ -4,6 +4,9 @@ import argparse
 import trimesh
 from PIL import Image
 
+from mpl_toolkits import mplot3d
+import matplotlib.pyplot as plt
+
 class Building():
     def __init__(self):
         ''' Building 3D Scene Graph attributes '''
@@ -450,6 +453,67 @@ def export_segm_png(panos, gibson_pano_path, palette_path, export_viz_path):
         inst_class.save(os.path.join(export_viz_path, pano+'_class_inst.png'))
 
 
+def print_graph(graph):
+    # first layer = Building()
+    building_attrs = vars(graph)
+    room_voxel_seg = []
+
+    for building_attr in building_attrs.items():
+        if building_attr[0] == 'room':
+            print('================================room================================')
+            for room in building_attr[1].items():
+                room_attrs = vars(room[1])
+                for room_attr in room_attrs.items():
+                    print(room_attr)
+
+                # print(room[1].voxel_occupancy)
+                # room_voxel_centers = []
+                # for i in range(len(room[1].voxel_occupancy[0])):
+                #     room_voxel_centers.append(graph.voxel_centers[room[1].voxel_occupancy[0][i]][room[1].voxel_occupancy[1][i]][room[1].voxel_occupancy[2][i]])
+                
+                # room_voxel_seg.append(np.array(room_voxel_centers))
+                break
+                print('--------------------------------')
+        elif building_attr[0] == 'camera':
+            print('===============================camera===============================')
+            for camera in building_attr[1].items():
+                camera_attrs = vars(camera[1])
+                for camera_attr in camera_attrs.items():
+                    print(camera_attr)
+                break
+                print('--------------------------------')
+        elif building_attr[0] == 'object':
+            print('===============================object===============================')
+            for object in building_attr[1].items():
+                object_attrs = vars(object[1])
+                for object_attr in object_attrs.items():
+                    print(object_attr)
+                break
+                print('--------------------------------')
+        elif building_attr[0] == 'voxel_centers':
+            print(('voxel_centers', "3d grid, omitted"))
+        else:
+            print(building_attr)
+
+    fig = plt.figure()
+    ax = plt.axes(projection='3d')
+
+    # zdata = graph.voxel_centers[:, :, :, 0]
+    # xdata = graph.voxel_centers[:, :, :, 1]
+    # ydata = graph.voxel_centers[:, :, :, 2]
+
+    # xdata = room_voxel_seg[1][:, 0]
+    # ydata = room_voxel_seg[1][:, 1]
+    # zdata = room_voxel_seg[1][:, 2]
+
+    # xyz_data = np.concatenate(room_voxel_seg)
+    # xdata = xyz_data[:, 0]
+    # ydata = xyz_data[:, 1]
+    # zdata = xyz_data[:, 2]
+
+    # ax.scatter3D(xdata, ydata, zdata)
+    # plt.show()
+
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, help="Name of Gibson database model")
@@ -478,6 +542,8 @@ if __name__=="__main__":
     scenegraph3d = {}
     scenegraph3d[model] = {}
     scenegraph3d[model]['graph'], scenegraph3d[model]['panoramas'] = load_3DSceneGraph(model, data_path)
+
+    print_graph(scenegraph3d[model]['graph'])
     
     if opt.visualize:
         if not os.path.exists(export_viz_path):
