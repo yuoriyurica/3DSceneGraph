@@ -58,6 +58,29 @@ def get_cam_prnt_room(cam_loc, rooms, vox_centers):
     room_cents = vox_centers[locs[0], locs[1], locs[2]]
     return room_id
 
+def get_cam_prnt_room_occupancy(cam_loc, rooms, vox_centers):
+    '''
+        Finds the room ID that contains the query camera
+        Args:
+            cam_loc     : the 3D coordinates of the camera location
+            rooms       : all room instances in the 3D Scene Graph structure
+            vox_centers : the 3D coordinates of all voxel centers in the building
+        Return:
+            room_id : the unique ID of the room
+    '''
+    room_id=None
+    latest_dist = 10000000
+    for room in rooms:
+        locs = rooms[room].voxel_occupancy
+        room_cents = vox_centers[locs[0], locs[1], locs[2]]
+        dist = cdist(room_cents, cam_loc, 'euclidean')
+        if np.min(dist) <= latest_dist:
+            room_id = rooms[room].id
+            latest_dist = np.min(dist)
+    locs = rooms[room_id].voxel_occupancy
+    room_cents = vox_centers[locs[0], locs[1], locs[2]]
+    return room_id
+
 def get_same_space(elem_1, elem_2, rooms, elem_type='object'):
     '''
         Finds if two element instances belong to the same room
