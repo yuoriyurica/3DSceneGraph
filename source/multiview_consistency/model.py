@@ -1102,7 +1102,7 @@ class Model():
         else:
             mesh2pano_opened=np.load(output_path+'.npz')["output"]  
         ## Find final semantic image
-        output_path = os.path.join(self.dest, name, name + "_final_pano_segmentation"
+        output_path = os.path.join(self.dest, name, name + "_final_pano_segmentation")
         if not os.path.exists(output_path + ".npz") or override==1:
             clusts = np.reshape(mesh2pano_opened, (mesh2pano_opened.shape[0]*mesh2pano_opened.shape[1]))
             # results: pixels, object label, instance index
