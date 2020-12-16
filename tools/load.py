@@ -1,8 +1,14 @@
 import os
+import sys
+import cv2
 import numpy as np
 import argparse
 import trimesh
 from PIL import Image
+
+sys.path.append('D:/Gibson/3DSceneGraph/source/3DSceneGraph')
+from attributes import relationships
+from utils import pose_tools
 
 from mpl_toolkits import mplot3d
 import matplotlib.pyplot as plt
@@ -465,54 +471,56 @@ def print_graph(graph):
                 room_attrs = vars(room[1])
                 for room_attr in room_attrs.items():
                     print(room_attr)
-
-                # print(room[1].voxel_occupancy)
-                # room_voxel_centers = []
-                # for i in range(len(room[1].voxel_occupancy[0])):
-                #     room_voxel_centers.append(graph.voxel_centers[room[1].voxel_occupancy[0][i]][room[1].voxel_occupancy[1][i]][room[1].voxel_occupancy[2][i]])
-                
-                # room_voxel_seg.append(np.array(room_voxel_centers))
-                break
                 print('--------------------------------')
         elif building_attr[0] == 'camera':
             print('===============================camera===============================')
-            for camera in building_attr[1].items():
-                camera_attrs = vars(camera[1])
-                for camera_attr in camera_attrs.items():
-                    print(camera_attr)
-                break
-                print('--------------------------------')
+            # for camera in building_attr[1].items():
+            #     camera_attrs = vars(camera[1])
+            #     for camera_attr in camera_attrs.items():
+            #         print(camera_attr)
+            #     print('--------------------------------')
         elif building_attr[0] == 'object':
             print('===============================object===============================')
-            for object in building_attr[1].items():
-                object_attrs = vars(object[1])
-                for object_attr in object_attrs.items():
-                    print(object_attr)
-                break
-                print('--------------------------------')
+            # for object in building_attr[1].items():
+            #     object_attrs = vars(object[1])
+            #     for object_attr in object_attrs.items():
+            #         print(object_attr)
+            #     print('--------------------------------')
         elif building_attr[0] == 'voxel_centers':
             print(('voxel_centers', "3d grid, omitted"))
         else:
             print(building_attr)
 
-    fig = plt.figure()
-    ax = plt.axes(projection='3d')
+def get_all_room_voxels(graph):
+    room_voxel_seg = []
 
-    # zdata = graph.voxel_centers[:, :, :, 0]
-    # xdata = graph.voxel_centers[:, :, :, 1]
-    # ydata = graph.voxel_centers[:, :, :, 2]
+    for room in graph.room.items():
+        room_voxel_centers = []
+        for i in range(len(room[1].voxel_occupancy[0])):
+            room_voxel_centers.append(graph.voxel_centers[room[1].voxel_occupancy[0][i]][room[1].voxel_occupancy[1][i]][room[1].voxel_occupancy[2][i]])
+        
+        room_voxel_seg.append(np.array(room_voxel_centers))
 
-    # xdata = room_voxel_seg[1][:, 0]
-    # ydata = room_voxel_seg[1][:, 1]
-    # zdata = room_voxel_seg[1][:, 2]
+    return room_voxel_seg
 
-    # xyz_data = np.concatenate(room_voxel_seg)
-    # xdata = xyz_data[:, 0]
-    # ydata = xyz_data[:, 1]
-    # zdata = xyz_data[:, 2]
+def cluster_pano(gibson_mesh_path, model, graph):
+    pano_poses = pose_tools.load_pano_pose(os.path.join(gibson_mesh_path, model, 'camera_poses.csv'))
 
-    # ax.scatter3D(xdata, ydata, zdata)
-    # plt.show()
+    pano_to_room = {}
+    room_to_pano = {}
+    for pano, pose in pano_poses.items():
+        cam_loc = [pose[:3]]
+        rooms = graph.room
+        vox_centers = graph.voxel_centers
+        room_id = relationships.get_cam_prnt_room_occupancy(cam_loc, rooms, vox_centers)
+        
+        pano_to_room[pano] = room_id
+        if room_id in room_to_pano:
+            room_to_pano[room_id].append(pano)
+        else:
+            room_to_pano[room_id] = [pano]
+
+    return pano_to_room, room_to_pano, pano_poses
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
@@ -543,8 +551,6 @@ if __name__=="__main__":
     scenegraph3d[model] = {}
     scenegraph3d[model]['graph'], scenegraph3d[model]['panoramas'] = load_3DSceneGraph(model, data_path)
 
-    print_graph(scenegraph3d[model]['graph'])
-    
     if opt.visualize:
         if not os.path.exists(export_viz_path):
             os.makedirs(export_viz_path)
