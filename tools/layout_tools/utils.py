@@ -1,13 +1,30 @@
+import os
+import io
 import cv2
+import json
 import numpy as np
 import open3d as o3d
 import matplotlib.pyplot as plt
+
+def load_json(path):    
+    with open(path) as json_file:
+        data = json.load(json_file)
+    return data
+
+def save_json(path, file):
+    with open(path, 'w') as outfile:
+        json.dump(file, outfile, sort_keys=True, indent=4)
 
 def convert_xy(idx, center, step, res):
     return (idx - (res / 2)) * step + center
 
 def convert_ij(xy, center, step, res):
-    return (np.round((xy - center) / step) + res / 2).astype(np.int32)
+    xy_centered = (xy - center)
+    xy_centered[..., 1] = -xy_centered[..., 1]
+    corners = (xy_centered / step + res / 2).astype(np.int32)
+    corners[corners > res - 1] = res - 1
+    corners[corners < 0] = 0
+    return corners
 
 def convert_binary_map(xy, center, step, res):
     binary_map = np.zeros((res, res))

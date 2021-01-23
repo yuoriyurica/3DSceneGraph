@@ -1,6 +1,64 @@
 import numpy as np
 import pyransac3d as pyrsc
 
+def medfit(data):
+    groups = np.array_split(data, 3)
+    group_median = []
+    for group in groups:
+        group_median.append(np.median(group, axis=0))
+    return np.average(group_median, axis=0)
+
+def filter_small_planes(mesh_, planes_, threshold=None, color=False, color_filter=False):
+    if threshold == None:
+        plane_count = [len(planes_[k]) for k in planes_.keys()]
+        threshold = np.percentile(plane_count, 85)
+
+    planes = []
+    reference_point = min(mesh_.vertices, key=lambda x: x[2])
+    for key in planes_.keys():
+        if len(planes_[key]) > threshold:
+            face = mesh_.faces[key]
+            faces = np.unique(mesh_.faces[list(planes_[key])])
+
+            if color_filter:
+                mesh_.visual.face_colors[list(planes_[key])] = trimesh.visual.random_color()
+
+            normals = mesh_.face_normals[list(planes_[key])]
+            # normal = np.median(normals, axis=0)
+            # normal = medfit(normals)
+            pca = decomposition.PCA(n_components=3)
+            pca.fit(normals)
+            normal = pca.mean_
+
+
+            origins = mesh_.vertices[faces].reshape((1, -1, 3))[0]
+            # origin = np.median(origins, axis=0)
+            # origin = medfit(origins)
+            origin = min(origins, key=lambda x: x[2])
+
+            d = (reference_point - origin)[2]
+            planes.append([np.array([*normal, d]), mesh_.vertices[faces], list(planes_[key])])
+
+        if color:
+            mesh_.visual.face_colors[list(planes_[key])] = trimesh.visual.random_color()
+            
+    return planes, reference_point
+
+def fill_faces(pnt_map, res):
+    floor_map = np.zeros((res, res)) # 512 * 512, 160 FOV
+    
+    pnt_idx = np.where(pnt_map == 1)
+    pnt_idx = np.column_stack((pnt_idx[1], pnt_idx[0]))
+    cv2.polylines(floor_map, [pnt_idx.reshape((-1,1,2))], False, (1,), 1)
+    cv2.fillPoly(floor_map, [pnt_idx.reshape((-1,1,2))], (1,))
+
+    pnt_idx = pnt_idx[pnt_idx[:, 1].argsort()]
+    pnt_idx = pnt_idx[pnt_idx[:, 0].argsort(kind='mergesort')]
+    cv2.polylines(floor_map, [pnt_idx.reshape((-1,1,2))], False, (1,), 1)
+    cv2.fillPoly(floor_map, [pnt_idx.reshape((-1,1,2))], (1,))
+
+    return floor_map
+
 def ransac_find_planes(pcd):
     planes = []
 
